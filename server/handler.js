@@ -1,7 +1,7 @@
 // Single HTTP entry point for the whole API (Node req/res). Used by the Vercel
 // Function in api/index.js and by the local dev/preview servers.
 //
-//   GET  /api/health
+//   GET  /api/health                 database configured and reachable?
 //   POST /api/rooms                  create a room   {name, avatar, deckId?}
 //   POST /api/rooms/:code/join       join a room     {name, avatar}
 //   GET  /api/rooms/:code/v          room version (CDN-cached for 1s, polled)
@@ -69,7 +69,14 @@ export default async function handler(req, res) {
     const [a, b, c] = seg
 
     if (a === 'health' && seg.length === 1 && m === 'GET') {
-      return send(res, 200, { ok: true, store: getService().storeKind })
+      const svc = getService()
+      try {
+        await svc.check()
+      } catch (err) {
+        console.error('Database check failed:', err.message)
+        return send(res, 503, { error: 'STORE_UNREACHABLE' })
+      }
+      return send(res, 200, { ok: true, store: svc.storeKind })
     }
 
     if (a === 'rooms') {

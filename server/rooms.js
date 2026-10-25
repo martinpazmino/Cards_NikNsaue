@@ -91,6 +91,7 @@ export function createService({ store, rng = cryptoRng, clock = Date.now }) {
 
   return {
     storeKind: store.kind,
+    check: () => store.check(),
 
     async createRoom({ name, avatar, deckId } = {}) {
       const n = validateName(name)

@@ -115,11 +115,13 @@ export default function Home() {
   const hero = useMemo(() => HERO[Math.floor(Math.random() * HERO.length)], [])
   const decks = storage.decks()
   const recent = storage.recentRooms().slice(0, 2)
-  const [setupNeeded, setSetupNeeded] = useState(false)
+  const [setupProblem, setSetupProblem] = useState(null)
 
-  // A fresh deploy without Redis can't host rooms: say how to fix it.
+  // A deploy without a working database can't host rooms: say how to fix it.
   useEffect(() => {
-    api.health().catch((e) => e.code === 'STORE_NOT_CONFIGURED' && setSetupNeeded(true))
+    api.health().catch((e) => {
+      if (e.code === 'STORE_NOT_CONFIGURED' || e.code === 'STORE_UNREACHABLE') setSetupProblem(e.code)
+    })
   }, [])
 
   function needName() {
@@ -191,10 +193,10 @@ export default function Home() {
         </div>
       </header>
 
-      {setupNeeded && (
+      {setupProblem && (
         <section className="notice">
           <strong>{t('setup.title')}</strong>
-          <p>{t('setup.text')}</p>
+          <p>{t(setupProblem === 'STORE_UNREACHABLE' ? 'setup.unreachable' : 'setup.text')}</p>
         </section>
       )}
 

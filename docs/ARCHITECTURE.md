@@ -15,7 +15,9 @@ the design:
 
 - **Frontend:** React + Vite, served as static files from Vercel's CDN.
 - **Backend:** a single Vercel Node.js Function (`api/index.js`) for every `/api/*` route.
-- **State:** Upstash Redis (Vercel Marketplace), with one JSON document per room and per group deck.
+- **State:** Redis, with one JSON document per room and per group deck. Either Upstash
+  (REST API, Vercel Marketplace) or any Redis reachable through `REDIS_URL`,
+  such as Redis Cloud.
 - **Game logic:** a pure, deterministic state machine in `shared/game.js`. The server is
   authoritative: clients send *intents* ("play these cards") and the server
   validates them against the real state.
@@ -78,6 +80,18 @@ without touching the game engine. Only `src/lib/useRoom.js` changes.
 
 All documents are Redis **hashes** with two fields: `v` (version, an integer)
 and `s` (the JSON snapshot). Polling reads only `v`.
+
+`server/store.js` runs the same commands over either transport:
+
+- **Upstash REST** (`KV_REST_API_*` / `UPSTASH_REDIS_REST_*`): one HTTPS request
+  per command or pipeline, with no connections to manage. This is the natural
+  fit for serverless.
+- **Redis protocol** (`REDIS_URL` / `KV_URL`, via `@redis/client`): each
+  function instance opens one connection lazily and reuses it across requests,
+  since Fluid Compute keeps instances warm. Commands have a 4 s timeout. If the
+  connection drops, the client reconnects and replays queued commands, and if
+  it gives up the next request starts a fresh connection. Replies use RESP2 so
+  both transports return identical shapes.
 
 | Key | Contents | Lifetime |
 |---|---|---|
@@ -235,8 +249,12 @@ For a 2-hour night with 8 players (about 50 rounds):
 
 Upstash's free tier includes 500K commands/month
 ([pricing](https://upstash.com/pricing/redis)), roughly 5–12 such nights.
-Beyond that, pay-as-you-go is $0.20 per 100K commands. On Vercel, most polls
-are CDN hits, which count as edge requests rather than function invocations.
+Beyond that, pay-as-you-go is $0.20 per 100K commands. With a `REDIS_URL`
+database, check your plan's limits. Storage is tiny (a room is tens of KB), and
+the app holds one connection per running function instance, which matters on
+free plans that cap connections. On Vercel, most
+polls are CDN hits, which count as edge requests rather than function
+invocations.
 
 ## Testing
 
@@ -245,7 +263,7 @@ are CDN hits, which count as edge requests rather than function invocations.
 | Content | No duplicate cards, valid blanks, lengths, style | `scripts/check-cards.js`, `test/game.test.js` |
 | Engine | Full games, rotation, pick-2, wildcards, timers, leaving/kicking, bot, boost, reshuffle, view secrecy | `test/game.test.js` |
 | HTTP API | Every route, auth, errors, concurrent submits, Vercel-rewritten URLs, deck persistence | `test/api.test.js` |
-| Redis | Lua compare-and-swap, TTLs, presence, 8 concurrent writers, against real Redis | `test/redis.test.js` |
+| Redis | Lua compare-and-swap, TTLs, presence, 8 concurrent writers and reconnection, run over both transports against real Redis; picking the store from env vars | `test/redis.test.js` |
 | i18n | Every UI string exists in ES and EN | `test/i18n.test.js` |
 | End-to-end | 4 phones (one small) play a whole game with a reload mid-game; screenshots every screen | `scripts/e2e.js` |
 

@@ -203,7 +203,8 @@ export const STRINGS = {
     'deck.defaultName': 'Mazo de {name}',
 
     'setup.title': 'Falta un pasito ⚙️',
-    'setup.text': 'Conecta Upstash Redis a este proyecto en Vercel (Storage → Upstash → Redis) y vuelve a desplegar. Los pasos están en el README.',
+    'setup.text': 'Conecta una base de datos Redis a este proyecto en Vercel (Upstash o tu REDIS_URL) y vuelve a desplegar. Los pasos están en el README.',
+    'setup.unreachable': 'No se pudo conectar a la base de datos. Revisa REDIS_URL (o Upstash) en las variables de entorno de Vercel y vuelve a desplegar.',
 
     'err.ROOM_NOT_FOUND': 'Esa sala no existe o ya expiró.',
     'err.NAME_TAKEN': 'Ya hay alguien con ese nombre en la sala.',
@@ -231,7 +232,8 @@ export const STRINGS = {
     'err.BUSY': 'Mucho movimiento, intenta otra vez.',
     'err.TOO_MANY_CARDS': 'Llegaron al máximo de cartas.',
     'err.NOBODY_PLAYED': 'Nadie ha jugado todavía.',
-    'err.STORE_NOT_CONFIGURED': 'Falta conectar la base de datos (Upstash Redis).',
+    'err.STORE_NOT_CONFIGURED': 'Falta conectar la base de datos (Redis).',
+    'err.STORE_UNREACHABLE': 'No se pudo conectar a la base de datos.',
     'err.default': 'Algo salió mal. Intenta otra vez.',
   },
 
@@ -436,7 +438,8 @@ export const STRINGS = {
     'deck.defaultName': '{name}’s deck',
 
     'setup.title': 'One more step ⚙️',
-    'setup.text': 'Connect Upstash Redis to this Vercel project (Storage → Upstash → Redis) and redeploy. The README has the steps.',
+    'setup.text': 'Connect a Redis database to this Vercel project (Upstash or your REDIS_URL) and redeploy. The README has the steps.',
+    'setup.unreachable': 'Couldn’t reach the database. Check REDIS_URL (or Upstash) in the Vercel environment variables and redeploy.',
 
     'err.ROOM_NOT_FOUND': 'That room doesn’t exist or has expired.',
     'err.NAME_TAKEN': 'Someone in the room already has that name.',
@@ -464,7 +467,8 @@ export const STRINGS = {
     'err.BUSY': 'Busy, try again.',
     'err.TOO_MANY_CARDS': 'Card limit reached.',
     'err.NOBODY_PLAYED': 'Nobody has played yet.',
-    'err.STORE_NOT_CONFIGURED': 'Database not connected (Upstash Redis).',
+    'err.STORE_NOT_CONFIGURED': 'Database not connected (Redis).',
+    'err.STORE_UNREACHABLE': 'Couldn’t reach the database.',
     'err.default': 'Something went wrong. Try again.',
   },
 }

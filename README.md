@@ -45,16 +45,24 @@ that one story about the tío), and the game makes sure they come up.
 
 ## Deploy to Vercel (free, about 5 minutes)
 
-You need a [Vercel](https://vercel.com) account. The database is the free
-Upstash Redis plan from the Vercel Marketplace.
+You need a [Vercel](https://vercel.com) account and a Redis database. Either
+works:
+
+- **Upstash** (free, one click from the Vercel Marketplace), or
+- **any Redis connection string**, such as a free [Redis Cloud](https://redis.io/cloud/)
+  database (`redis://default:<password>@<host>:<port>`).
 
 ### Option A: import this repo
 
 1. On Vercel: **Add New… → Project → Import** `martinpazmino/Cards_NikNsaue`.
    Vercel detects Vite and deploys the `api/` function automatically. Click **Deploy**.
-2. In the project, open **Storage → Create Database → Upstash for Redis → Free**,
-   and **connect it to the project**. This adds the `KV_REST_API_URL` and
-   `KV_REST_API_TOKEN` environment variables.
+2. Connect the database, using **one** of these:
+   - **Upstash:** open **Storage → Create Database → Upstash for Redis → Free**
+     and connect it to the project. This adds `KV_REST_API_URL` and `KV_REST_API_TOKEN`.
+   - **Your own Redis (for example Redis Cloud):** open **Settings → Environment
+     Variables** and add `REDIS_URL` with your connection string, for
+     Production and Preview. Vercel's "Redis" Marketplace integration sets
+     `REDIS_URL` for you.
 3. **Redeploy** (Deployments → ⋯ → Redeploy) so the function picks up the variables.
 4. Open the URL, create a room, and send the link to the group. 🎉
 
@@ -69,10 +77,13 @@ This clones the project into your GitHub account and provisions Upstash during s
 
 **Tips**
 
-- Put the Upstash database in the same region as your functions (Vercel's
-  default is Washington D.C., `iad1`; for Upstash that's `us-east-1`).
-- A plain [Upstash](https://upstash.com) database works too: set
-  `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` instead.
+- Put the database in the same region as your functions. Vercel's default is
+  Washington D.C. (`iad1`), which is AWS `us-east-1`.
+- Supported variables: `KV_REST_API_URL` + `KV_REST_API_TOKEN` or
+  `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (Upstash REST), or
+  `REDIS_URL` / `KV_URL` (any `redis://` or `rediss://` URL). If both kinds are
+  set, Upstash REST wins. See `.env.example`.
+- Keep connection strings out of the repo; they belong in Vercel's environment variables.
 - If the database isn't connected, the home screen shows a "Falta un pasito ⚙️" notice.
 
 ## Run it locally
@@ -93,8 +104,9 @@ npm run e2e            # 4 simulated phones play a full game (needs Playwright +
 npm run check:cards    # validate the built-in decks
 ```
 
-To use Upstash while developing, put the two Redis variables in `.env.local`,
-or run `vercel env pull .env.local`.
+To develop against a real database, copy `.env.example` to `.env.local` (it's
+git-ignored) and fill in one option, or run `vercel env pull .env.local`. Both
+`npm run dev` and `npm start` read it.
 
 ## Make it yours
 
@@ -125,7 +137,7 @@ consistency, security, costs) is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 api/index.js          Vercel Function: every /api/* request
 server/handler.js     HTTP routing, errors, CDN cache headers
 server/rooms.js       rooms & decks: auth, compare-and-swap writes, deck sync
-server/store.js       Upstash Redis (REST + Lua) and in-memory stores
+server/store.js       Redis store (Upstash REST or REDIS_URL, Lua CAS) + in-memory store
 shared/game.js        pure game engine (state machine)
 shared/view.js        per-player view (what each phone may see)
 shared/text.js        blanks, filling prompts with answers
@@ -138,7 +150,9 @@ scripts/              dev server, e2e, card/i18n checks, asset generator
 ## Costs
 
 Everything fits in free tiers for a group of friends. A 2-hour, 8-player night
-uses about 40K Upstash commands, and the free plan includes 500K per month.
+uses about 40K Redis commands: Upstash's free plan includes 500K per month, and
+on a Redis Cloud free database a room takes only tens of KB, with one
+connection per running function.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#cost-on-free-tiers).
 
 ## Credits

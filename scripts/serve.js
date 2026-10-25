@@ -5,7 +5,17 @@
 import http from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
-import handler from '../server/handler.js'
+
+// Database settings from .env / .env.local, like the dev server.
+for (const file of ['.env', '.env.local']) {
+  try {
+    process.loadEnvFile(file)
+  } catch {
+    // no such file
+  }
+}
+
+const { default: handler } = await import('../server/handler.js')
 
 const root = path.resolve('dist')
 const port = Number(process.env.PORT) || 3000

@@ -3,8 +3,10 @@
 // Writes use compare-and-swap on `v` (a Lua script on Redis) so two players
 // acting at the same time can never overwrite each other.
 //
-// - Upstash Redis (REST API) in production. Works with the Vercel Marketplace
-//   integration (KV_REST_API_*) or a plain Upstash database (UPSTASH_REDIS_REST_*).
+// - Redis in production, through either transport:
+//   - Upstash REST API: the Vercel Marketplace integration (KV_REST_API_*) or a
+//     plain Upstash database (UPSTASH_REDIS_REST_*).
+//   - A regular Redis connection string (REDIS_URL), e.g. Redis Cloud.
 // - In-memory store for local development and tests.
 
 export class StoreConfigError extends Error {
@@ -32,7 +34,8 @@ function pairsToObject(arr) {
   return out
 }
 
-export function createRedisStore({ url, token, fetchImpl = globalThis.fetch }) {
+// Upstash REST: one HTTP request per command (or per pipeline).
+function upstashTransport({ url, token, fetchImpl = globalThis.fetch }) {
   const base = url.replace(/\/+$/, '')
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 
@@ -43,22 +46,100 @@ export function createRedisStore({ url, token, fetchImpl = globalThis.fetch }) {
     return json
   }
 
-  async function call(cmd) {
-    const json = await post('/', cmd)
-    if (json.error) throw new Error(`Redis: ${json.error}`)
-    return json.result
-  }
-
-  async function pipeline(cmds) {
-    const json = await post('/pipeline', cmds)
-    return json.map((r) => {
-      if (r.error) throw new Error(`Redis: ${r.error}`)
-      return r.result
-    })
-  }
-
   return {
-    kind: 'redis',
+    async call(cmd) {
+      const json = await post('/', cmd)
+      if (json.error) throw new Error(`Redis: ${json.error}`)
+      return json.result
+    },
+    async pipeline(cmds) {
+      const json = await post('/pipeline', cmds)
+      return json.map((r) => {
+        if (r.error) throw new Error(`Redis: ${r.error}`)
+        return r.result
+      })
+    },
+  }
+}
+
+// Regular Redis protocol over TCP (redis:// or rediss://). Each function
+// instance keeps one connection and reuses it across requests; if the
+// connection breaks or a command times out, the next request reconnects.
+function tcpTransport({ url, timeout = 4000 }) {
+  let connecting = null
+  let ErrorReply = null
+
+  function client() {
+    connecting ??= (async () => {
+      const lib = await import('@redis/client')
+      ErrorReply = lib.ErrorReply
+      const c = lib.createClient({
+        url,
+        RESP: 2,
+        socket: {
+          connectTimeout: 5000,
+          reconnectStrategy: (retries) => (retries > 3 ? false : 200 * retries),
+        },
+      })
+      c.on('error', (err) => console.error('Redis connection error:', err.message))
+      await c.connect()
+      return c
+    })().catch((err) => {
+      connecting = null
+      throw err
+    })
+    return connecting
+  }
+
+  async function call(cmd, retried = false) {
+    const pending = client()
+    const c = await pending
+    if (!c.isOpen && !retried) {
+      // The client gave up reconnecting and closed itself: start over once.
+      if (connecting === pending) connecting = null
+      return call(cmd, true)
+    }
+    try {
+      return await c.sendCommand(cmd.map(String), { timeout })
+    } catch (err) {
+      // An error reply means Redis ran the command; anything else is the
+      // connection. Drop it, unless another request already replaced it.
+      if (!(err instanceof ErrorReply) && connecting === pending) {
+        connecting = null
+        c.destroy()
+      }
+      throw err
+    }
+  }
+
+  // Commands sent in the same tick are pipelined by the client.
+  return {
+    call: (cmd) => call(cmd),
+    pipeline: (cmds) => Promise.all(cmds.map((cmd) => call(cmd))),
+    async close() {
+      const c = await connecting?.catch(() => null)
+      connecting = null
+      c?.destroy()
+    },
+  }
+}
+
+export function createUpstashStore(options) {
+  return redisStore('upstash', upstashTransport(options))
+}
+
+export function createTcpStore(options) {
+  return redisStore('redis', tcpTransport(options))
+}
+
+function redisStore(kind, transport) {
+  const { call, pipeline } = transport
+  return {
+    kind,
+    close: () => transport.close?.(),
+    async check() {
+      await call(['PING'])
+    },
     async getVersion(key) {
       const v = await call(['HGET', key, 'v'])
       return v == null ? null : Number(v)
@@ -128,6 +209,8 @@ export function createMemoryStore({ clock = Date.now } = {}) {
 
   return {
     kind: 'memory',
+    async close() {},
+    async check() {},
     async getVersion(key) {
       const v = entry(key)?.h.get('v')
       return v == null ? null : Number(v)
@@ -170,9 +253,11 @@ export function createMemoryStore({ clock = Date.now } = {}) {
 }
 
 export function storeFromEnv(env = process.env) {
-  const url = env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL
-  const token = env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN
-  if (url && token) return createRedisStore({ url, token })
+  const restUrl = env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL
+  const restToken = env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN
+  if (restUrl && restToken) return createUpstashStore({ url: restUrl, token: restToken })
+  const redisUrl = env.REDIS_URL || env.KV_URL
+  if (redisUrl) return createTcpStore({ url: redisUrl })
   // On Vercel every request may hit a different instance, so memory won't do.
   if (env.VERCEL) throw new StoreConfigError()
   return createMemoryStore()

@@ -2,6 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import handler from '../server/handler.js'
+import { createService } from '../server/rooms.js'
+import { createTcpStore } from '../server/store.js'
 
 // Runs the real HTTP handler (in-memory store) on a random port.
 async function startServer({ vercelRewrite = false } = {}) {
@@ -155,6 +157,22 @@ test('bad requests get clean errors', async () => {
     assert.equal(res.status, 400)
     assert.equal((await res.json()).error, 'BAD_JSON')
   } finally {
+    await close()
+  }
+})
+
+test('health reports a database that cannot be reached', async () => {
+  const saved = globalThis.__sinverguenzas
+  const store = createTcpStore({ url: 'redis://127.0.0.1:1' })
+  globalThis.__sinverguenzas = createService({ store })
+  const { call, close } = await startServer()
+  try {
+    const res = await call('GET', '/api/health')
+    assert.equal(res.status, 503)
+    assert.equal(res.json.error, 'STORE_UNREACHABLE')
+  } finally {
+    globalThis.__sinverguenzas = saved
+    await store.close()
     await close()
   }
 })
