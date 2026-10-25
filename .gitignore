@@ -1,0 +1,8 @@
+node_modules/
+dist/
+e2e-shots/
+.vercel/
+.env
+.env*.local
+*.log
+.DS_Store
