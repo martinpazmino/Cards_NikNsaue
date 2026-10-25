@@ -18,9 +18,11 @@ function devApi() {
   return { name: 'sinverguenzas-api', configureServer: mount, configurePreviewServer: mount }
 }
 
-// Absolute URLs for link previews (WhatsApp needs an absolute og:image).
+// Public production URL, for link previews (WhatsApp needs an absolute
+// og:image) and invite links. Not VERCEL_URL: deployment URLs sit behind
+// Vercel's Deployment Protection login.
 function siteUrl() {
-  const host = process.env.SITE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || ''
+  const host = process.env.SITE_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL || ''
   if (!host) return ''
   return host.startsWith('http') ? host.replace(/\/$/, '') : `https://${host}`
 }
@@ -44,5 +46,6 @@ export default defineConfig(({ mode }) => {
     server: { host: true },
     preview: { host: true },
     build: { target: 'es2020' },
+    define: { __SITE_URL__: JSON.stringify(siteUrl()) },
   }
 })

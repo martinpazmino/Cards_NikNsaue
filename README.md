@@ -66,6 +66,14 @@ works:
 3. **Redeploy** (Deployments → ⋯ → Redeploy) so the function picks up the variables.
 4. Open the URL, create a room, and send the link to the group. 🎉
 
+> **Share the short production URL** (`https://<project>.vercel.app`). The long
+> `…-<team>.vercel.app` deployment URLs sit behind Vercel's login (Deployment
+> Protection): friends can't open them, and phones can't install the app from
+> them. Invite links inside the app always use the production URL.
+>
+> **Install it like an app:** open the production URL, then browser menu →
+> *Install app* / *Add to Home Screen*.
+
 > Vercel deploys your repo's production branch (usually `main`) to the main URL.
 > Merge this work into `main`, or set the branch under **Settings → Git → Production Branch**.
 

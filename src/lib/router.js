@@ -30,5 +30,8 @@ export function useRoute() {
   return route
 }
 
-export const roomUrl = (code) => `${window.location.origin}/${code}`
-export const deckUrl = (id) => `${window.location.origin}/m/${id}`
+// Invite links always use the public production domain (set at build time),
+// even when the host has the app open on a login-protected deployment URL.
+export const shareOrigin = () => __SITE_URL__ || window.location.origin
+export const roomUrl = (code) => `${shareOrigin()}/${code}`
+export const deckUrl = (id) => `${shareOrigin()}/m/${id}`

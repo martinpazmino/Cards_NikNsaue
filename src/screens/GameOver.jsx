@@ -6,6 +6,7 @@ import { Avatar, BottomBar, Logo, PapelPicado } from '../components/ui.jsx'
 import { celebrate } from '../lib/celebrate.js'
 import { cx } from '../lib/cx.js'
 import { share } from '../lib/device.js'
+import { shareOrigin } from '../lib/router.js'
 import { points, useI18n } from '../lib/i18n.jsx'
 import { APP_NAME } from '../../shared/constants.js'
 
@@ -56,7 +57,7 @@ export default function GameOver({ view, room }) {
 
   const shareResults = async () => {
     const text = champ ? t('over.shareText', { name: champ.name, n: champ.score }) : t('over.noWinner')
-    const r = await share({ title: APP_NAME, text, url: window.location.origin })
+    const r = await share({ title: APP_NAME, text, url: shareOrigin() })
     if (r === 'copied') toast(t('common.copied'))
   }
 
