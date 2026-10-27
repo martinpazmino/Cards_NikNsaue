@@ -4,9 +4,10 @@
 import clasico from './clasico.js'
 import spanglish from './spanglish.js'
 import picante from './picante.js'
+import ecuador from './ecuador.js'
 import { pickCount } from '../text.js'
 
-export const PACK_LIST = [clasico, spanglish, picante]
+export const PACK_LIST = [clasico, spanglish, picante, ecuador]
 
 function hash(str) {
   let h = 0x811c9dc5

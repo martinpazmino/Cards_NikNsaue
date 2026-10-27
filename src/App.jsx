@@ -73,7 +73,9 @@ function RoomScreen({ code, session, onLost }) {
   const [initial] = useState(() => peekPrimed(code))
   const { view, fatal, offline, act, serverNow } = useRoom(code, session, initial)
 
-  useEffect(() => clearPrimed(code), [code])
+  useEffect(() => {
+    clearPrimed(code)
+  }, [code])
   useWakeLock(!!view?.me)
   useEffect(() => {
     if (fatal) onLost(fatal)
